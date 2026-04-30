@@ -1,0 +1,44 @@
+# Python virtual environment
+.venv/
+venv/
+env/
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Pytest cache
+.pytest_cache/
+
+# Package build / install metadata
+*.egg-info/
+build/
+dist/
+
+# Local data files
+*.mat
+*.csv
+*.xlsx
+*.xls
+
+# Generated results and figures
+results/
+example_outputs/
+figures/
+
+# Model checkpoints
+*.pt
+*.pth
+*.pkl
+*.joblib
+
+# Jupyter notebook checkpoints
+.ipynb_checkpoints/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# VS Code local settings
+.vscode/
