@@ -7,6 +7,7 @@ NASA Li-ion battery data files.
 
 from pathlib import Path
 import scipy.io
+import numpy as np
 
 def find_mat_files(data_dir: str | Path) -> list[Path]:
     """
@@ -77,3 +78,13 @@ def matlab_string_to_python(value) -> str:
         return "".join(characters).strip()
 
     return str(value).strip()
+
+def matlab_array_to_1d(value) -> np.ndarray:
+    """
+    Convert a MATLAB array loaded by scipy into a clean one-dimensional array.
+    """
+    array = np.asarray(value)
+    array = array.squeeze()
+    array = np.atleast_1d(array)
+
+    return array
