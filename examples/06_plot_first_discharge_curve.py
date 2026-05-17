@@ -23,6 +23,8 @@ def main():
         )
 
     table = pd.read_csv(csv_path)
+    table = table[table["current_measured_a"] < -1.0].copy()
+    table["time_s"] = table["time_s"] - table["time_s"].iloc[0]
 
     battery_id = table["battery_id"].iloc[0]
     cycle_index = int(table["cycle_index"].iloc[0])
