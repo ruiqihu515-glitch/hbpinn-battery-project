@@ -59,6 +59,13 @@ def main():
             temperature_c = matlab_array_to_1d(data_object["Temperature_measured"])
             time_s = matlab_array_to_1d(data_object["Time"])
 
+            min_voltage_position = int(np.argmin(voltage_v))
+
+            voltage_v = voltage_v[: min_voltage_position + 1]
+            current_a = current_a[: min_voltage_position + 1]
+            temperature_c = temperature_c[: min_voltage_position + 1]
+            time_s = time_s[: min_voltage_position + 1]
+
             capacity_array = matlab_array_to_1d(data_object["Capacity"])
 
             capacity_is_observed = len(capacity_array) > 0
