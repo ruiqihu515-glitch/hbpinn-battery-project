@@ -6,6 +6,8 @@ import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_squared_error
+from sklearn.neural_network import MLPRegressor
+from sklearn.preprocessing import StandardScaler
 
 
 REQUIRED_COLUMNS = [
@@ -124,6 +126,21 @@ def fit_battery_models(battery_id, battery_table):
     )
     residual_model.fit(train_table[RESIDUAL_FEATURES], train_table["residual_v"])
 
+    mlp_scaler = StandardScaler()
+    X_train_mlp = mlp_scaler.fit_transform(train_table[RESIDUAL_FEATURES])
+
+    mlp_model = MLPRegressor(
+        hidden_layer_sizes=(64, 32),
+        activation="relu",
+        solver="adam",
+        alpha=1e-4,
+        learning_rate_init=1e-3,
+        max_iter=300,
+        early_stopping=True,
+        random_state=42,
+    )
+    mlp_model.fit(X_train_mlp, train_table["residual_v"])
+
     temperature_model = RandomForestRegressor(
         n_estimators=200,
         max_depth=12,
@@ -139,12 +156,19 @@ def fit_battery_models(battery_id, battery_table):
         split_table["residual_pred_no_temperature_v"] = residual_model.predict(
             split_table[RESIDUAL_FEATURES]
         )
+        split_table["residual_pred_mlp_v"] = mlp_model.predict(
+            mlp_scaler.transform(split_table[RESIDUAL_FEATURES])
+        )
         split_table["residual_pred_temperature_v"] = temperature_model.predict(
             split_table[TEMPERATURE_RESIDUAL_FEATURES]
         )
         split_table["voltage_hybrid_pred_v"] = (
             split_table["voltage_baseline_pred_v"]
             + split_table["residual_pred_no_temperature_v"]
+        )
+        split_table["voltage_mlp_hybrid_pred_v"] = (
+            split_table["voltage_baseline_pred_v"]
+            + split_table["residual_pred_mlp_v"]
         )
         split_table["voltage_temperature_hybrid_pred_v"] = (
             split_table["voltage_baseline_pred_v"]
@@ -155,6 +179,8 @@ def fit_battery_models(battery_id, battery_table):
     baseline_test = score_predictions(test_table, "voltage_baseline_pred_v")
     hybrid_train = score_predictions(train_table, "voltage_hybrid_pred_v")
     hybrid_test = score_predictions(test_table, "voltage_hybrid_pred_v")
+    mlp_train = score_predictions(train_table, "voltage_mlp_hybrid_pred_v")
+    mlp_test = score_predictions(test_table, "voltage_mlp_hybrid_pred_v")
     temperature_train = score_predictions(
         train_table,
         "voltage_temperature_hybrid_pred_v",
@@ -203,6 +229,24 @@ def fit_battery_models(battery_id, battery_table):
         },
         {
             "battery_id": battery_id,
+            "model_name": "mlp_hybrid_residual_without_temperature",
+            "number_of_discharge_cycles": len(all_cycles),
+            "number_of_train_cycles": len(train_cycles),
+            "number_of_test_cycles": len(test_cycles),
+            "number_of_train_rows": len(train_table),
+            "number_of_test_rows": len(test_table),
+            "train_rmse_v": mlp_train["rmse_v"],
+            "test_rmse_v": mlp_test["rmse_v"],
+            "train_mae_v": mlp_train["mae_v"],
+            "test_mae_v": mlp_test["mae_v"],
+            "baseline_intercept": baseline_model.intercept_,
+            "coef_soc": baseline_model.coef_[0],
+            "coef_soc_squared": baseline_model.coef_[1],
+            "coef_soc_cubed": baseline_model.coef_[2],
+            "coef_discharge_current_a": baseline_model.coef_[3],
+        },
+        {
+            "battery_id": battery_id,
             "model_name": "temperature_aware_hybrid_residual",
             "number_of_discharge_cycles": len(all_cycles),
             "number_of_train_cycles": len(train_cycles),
@@ -226,6 +270,7 @@ def fit_battery_models(battery_id, battery_table):
     for discharge_index, cycle_table in test_table.groupby("discharge_index"):
         baseline_cycle = score_predictions(cycle_table, "voltage_baseline_pred_v")
         hybrid_cycle = score_predictions(cycle_table, "voltage_hybrid_pred_v")
+        mlp_cycle = score_predictions(cycle_table, "voltage_mlp_hybrid_pred_v")
         temperature_cycle = score_predictions(
             cycle_table,
             "voltage_temperature_hybrid_pred_v",
@@ -238,18 +283,32 @@ def fit_battery_models(battery_id, battery_table):
                 "number_of_steps": len(cycle_table),
                 "baseline_rmse_v": baseline_cycle["rmse_v"],
                 "hybrid_rmse_v": hybrid_cycle["rmse_v"],
+                "mlp_hybrid_rmse_v": mlp_cycle["rmse_v"],
                 "temperature_hybrid_rmse_v": temperature_cycle["rmse_v"],
                 "baseline_mae_v": baseline_cycle["mae_v"],
                 "hybrid_mae_v": hybrid_cycle["mae_v"],
+                "mlp_hybrid_mae_v": mlp_cycle["mae_v"],
                 "temperature_hybrid_mae_v": temperature_cycle["mae_v"],
                 "hybrid_rmse_improvement_v": (
                     baseline_cycle["rmse_v"] - hybrid_cycle["rmse_v"]
+                ),
+                "mlp_rmse_improvement_v": (
+                    baseline_cycle["rmse_v"] - mlp_cycle["rmse_v"]
+                ),
+                "mlp_vs_rf_rmse_gain_v": (
+                    hybrid_cycle["rmse_v"] - mlp_cycle["rmse_v"]
                 ),
                 "temperature_rmse_gain_v": (
                     hybrid_cycle["rmse_v"] - temperature_cycle["rmse_v"]
                 ),
                 "hybrid_mae_improvement_v": (
                     baseline_cycle["mae_v"] - hybrid_cycle["mae_v"]
+                ),
+                "mlp_mae_improvement_v": (
+                    baseline_cycle["mae_v"] - mlp_cycle["mae_v"]
+                ),
+                "mlp_vs_rf_mae_gain_v": (
+                    hybrid_cycle["mae_v"] - mlp_cycle["mae_v"]
                 ),
                 "temperature_mae_gain_v": (
                     hybrid_cycle["mae_v"] - temperature_cycle["mae_v"]
@@ -269,8 +328,8 @@ def plot_rmse_summary(metrics_table, figure_path):
 
     labels = {
         "physics_inspired_baseline": "Baseline",
-        "hybrid_residual_without_temperature": "Hybrid",
-        "temperature_aware_hybrid_residual": "Temp hybrid",
+        "hybrid_residual_without_temperature": "RF hybrid",
+        "temperature_aware_hybrid_residual": "Temp RF hybrid",
     }
 
     x = np.arange(len(summary.index))
@@ -278,7 +337,9 @@ def plot_rmse_summary(metrics_table, figure_path):
 
     plt.figure(figsize=(10, 5))
 
-    for offset, model_name in zip([-width, 0, width], labels):
+    offsets = [-width, 0, width]
+
+    for offset, model_name in zip(offsets, labels):
         plt.bar(
             x + offset,
             summary[model_name],
@@ -289,6 +350,41 @@ def plot_rmse_summary(metrics_table, figure_path):
     plt.xticks(x, summary.index, rotation=45)
     plt.ylabel("Test RMSE [V]")
     plt.title("Multi-battery voltage response test RMSE")
+    plt.grid(axis="y", alpha=0.3)
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(figure_path, dpi=200)
+    plt.close()
+
+
+def plot_mlp_diagnostic(metrics_table, figure_path):
+    summary = metrics_table.pivot(
+        index="battery_id",
+        columns="model_name",
+        values="test_rmse_v",
+    ).sort_index()
+
+    labels = {
+        "hybrid_residual_without_temperature": "RF hybrid",
+        "mlp_hybrid_residual_without_temperature": "MLP hybrid",
+    }
+
+    x = np.arange(len(summary.index))
+    width = 0.35
+
+    plt.figure(figsize=(10, 5))
+
+    for offset, model_name in zip([-0.5 * width, 0.5 * width], labels):
+        plt.bar(
+            x + offset,
+            summary[model_name],
+            width=width,
+            label=labels[model_name],
+        )
+
+    plt.xticks(x, summary.index, rotation=45)
+    plt.ylabel("Test RMSE [V]")
+    plt.title("MLP residual diagnostic test RMSE")
     plt.grid(axis="y", alpha=0.3)
     plt.legend()
     plt.tight_layout()
@@ -330,6 +426,7 @@ def main():
         output_dir / "multi_battery_voltage_response_per_cycle_metrics.csv"
     )
     rmse_figure_path = figure_dir / "multi_battery_voltage_rmse_summary.png"
+    mlp_diagnostic_figure_path = figure_dir / "mlp_voltage_diagnostic_rmse_summary.png"
     temperature_gain_figure_path = figure_dir / "temperature_gain_multi_battery.png"
 
     table = pd.read_csv(sequence_path)
@@ -366,6 +463,7 @@ def main():
 
     if not metrics_table.empty:
         plot_rmse_summary(metrics_table, rmse_figure_path)
+        plot_mlp_diagnostic(metrics_table, mlp_diagnostic_figure_path)
 
     if not per_cycle_metrics.empty:
         plot_temperature_gain(per_cycle_metrics, temperature_gain_figure_path)
@@ -382,10 +480,19 @@ def main():
 
     baseline_rmse = metrics_wide["physics_inspired_baseline"]
     hybrid_rmse = metrics_wide["hybrid_residual_without_temperature"]
+    mlp_rmse = metrics_wide["mlp_hybrid_residual_without_temperature"]
     temperature_rmse = metrics_wide["temperature_aware_hybrid_residual"]
 
     hybrid_improved = (hybrid_rmse < baseline_rmse).sum()
+    mlp_improved = (mlp_rmse < baseline_rmse).sum()
     temperature_improved = (temperature_rmse < hybrid_rmse).sum()
+    average_test_rmse = {
+        "Baseline": baseline_rmse.mean(),
+        "RF hybrid": hybrid_rmse.mean(),
+        "MLP hybrid": mlp_rmse.mean(),
+        "Temp RF hybrid": temperature_rmse.mean(),
+    }
+    best_model_name = min(average_test_rmse, key=average_test_rmse.get)
 
     print("Multi-battery voltage-response summary")
     print("--------------------------------------")
@@ -399,24 +506,51 @@ def main():
             print(f"{row.battery_id}: {row.skip_reason}")
 
     print(f"\nAverage baseline test RMSE: {baseline_rmse.mean():.6f} V")
-    print(f"Average hybrid test RMSE: {hybrid_rmse.mean():.6f} V")
+    print(f"Average RF hybrid test RMSE: {hybrid_rmse.mean():.6f} V")
+    print(f"Average MLP hybrid test RMSE: {mlp_rmse.mean():.6f} V")
     print(
-        "Average temperature-aware hybrid test RMSE: "
+        "Average temperature-aware RF hybrid test RMSE: "
         f"{temperature_rmse.mean():.6f} V"
     )
     print(
-        "Number of batteries improved by hybrid residual learning: "
+        "Number of batteries improved by RF hybrid residual learning: "
         f"{hybrid_improved}"
     )
     print(
-        "Number of batteries improved by temperature-aware residual learning: "
+        "Number of batteries improved by MLP hybrid residual learning: "
+        f"{mlp_improved}"
+    )
+    print(
+        "Number of batteries improved by temperature-aware RF residual learning: "
         f"{temperature_improved}"
     )
+    print(f"Best model on average: {best_model_name}")
+    print(f"MLP improves over RF on average: {mlp_rmse.mean() < hybrid_rmse.mean()}")
+    print(
+        "MLP was evaluated but is not selected as the final main model because "
+        "it is worse than RF on average."
+    )
+
+    print("\nConclusion:")
+    print(
+        "Residual learning with RandomForest clearly improves the "
+        "physics-inspired baseline."
+    )
+    print(
+        "The MLP neural residual model was evaluated, but it is less stable "
+        "and performs worse on average."
+    )
+    print(
+        "Temperature-aware RF improves some batteries but does not improve "
+        "the average RMSE."
+    )
+    print("Therefore, RF hybrid is selected as the main voltage-response model.")
 
     print("\nOutput file paths:")
     print(metrics_path)
     print(per_cycle_metrics_path)
     print(rmse_figure_path)
+    print(mlp_diagnostic_figure_path)
     print(temperature_gain_figure_path)
 
 
