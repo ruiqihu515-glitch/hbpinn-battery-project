@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 
 
-PROJECT_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 RESULTS_DIR = PROJECT_ROOT / "results"
 OUTPUT_DIR = PROJECT_ROOT / "outputs" / "example_19_final_summary"
 
