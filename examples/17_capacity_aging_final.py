@@ -26,6 +26,7 @@ METRICS_PATH = RESULTS_DIR / "capacity_aging_final_metrics.csv"
 FLEET_DIAGNOSTICS_FIGURE = FIGURES_DIR / "capacity_aging_final_fleet_diagnostics.png"
 FORECAST_COMPARISON_FIGURE = FIGURES_DIR / "capacity_aging_final_forecast_comparison.png"
 RMSE_SUMMARY_FIGURE = FIGURES_DIR / "capacity_aging_final_rmse_summary.png"
+B0005_SELF_BASELINE_FIGURE = FIGURES_DIR / "capacity_aging_B0005_self_baseline.png"
 REPORT_PATH = Path("capacity_aging_final_report.md")
 
 TARGET_BATTERIES = ["B0005", "B0006", "B0007", "B0018"]
@@ -1098,6 +1099,71 @@ def plot_forecast_comparison(results):
     fig.savefig(FORECAST_COMPARISON_FIGURE, dpi=200)
     plt.close(fig)
 
+def plot_b0005_self_baseline(results):
+    """Plot B0005 measured SOH, self-only baseline, train/test split, and 80% threshold."""
+    target_id = "B0005"
+
+    if target_id not in results:
+        print("Skipped B0005 self-only baseline plot: B0005 not found in results.")
+        return
+
+    result = results[target_id]
+
+    full = result["full"]
+    x_full = result["x_full"]
+    self_pred = result["self_pred"]
+
+    metric_row = result["metrics"][
+        result["metrics"]["model_name"] == "self_only_baseline"
+    ]
+
+    rmse_text = ""
+    if not metric_row.empty:
+        b0005_rmse = float(metric_row["test_rmse_soh"].iloc[0])
+        rmse_text = f", test RMSE {b0005_rmse:.4f} SOH"
+
+    fig, ax = plt.subplots(figsize=(7.5, 5.0))
+
+    ax.plot(
+        full["energy_frac"],
+        full["SOH"],
+        "o-",
+        markersize=3,
+        linewidth=1.1,
+        label="Measured raw SOH",
+    )
+
+    ax.plot(
+        x_full,
+        self_pred,
+        linewidth=2.4,
+        label="Self-only baseline",
+    )
+
+    ax.axvline(
+        SPLIT_X,
+        linestyle=":",
+        linewidth=1.8,
+        label="Train/test split",
+    )
+
+    ax.axhline(
+        0.80,
+        linestyle="--",
+        linewidth=1.8,
+        label="80% initial capacity",
+    )
+
+    ax.set_title(f"B0005 self-only capacity-aging baseline{rmse_text}")
+    ax.set_xlabel("Normalized cumulative energy age")
+    ax.set_ylabel("SOH")
+    ax.set_ylim(0.55, 1.05)
+    ax.grid(alpha=0.30)
+    ax.legend(loc="best")
+
+    fig.tight_layout()
+    fig.savefig(B0005_SELF_BASELINE_FIGURE, dpi=200)
+    plt.close(fig)
 
 def plot_rmse_summary(metrics):
     final_metrics = metrics[
@@ -1236,6 +1302,7 @@ def print_summary(metrics):
         METRICS_PATH,
         FLEET_DIAGNOSTICS_FIGURE,
         FORECAST_COMPARISON_FIGURE,
+        B0005_SELF_BASELINE_FIGURE,
         RMSE_SUMMARY_FIGURE,
         REPORT_PATH,
     ]
@@ -1320,6 +1387,7 @@ def main():
 
     plot_fleet_diagnostics(results)
     plot_forecast_comparison(results)
+    plot_b0005_self_baseline(results)
     plot_rmse_summary(metrics)
     write_report(cycle_dataset, results, metrics, skipped)
     print_summary(metrics)
