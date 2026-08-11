@@ -1,0 +1,6 @@
+experiment,source_file,case_or_model,model_role,n_batteries,mean_rmse_soh,median_rmse_soh,mean_mae_soh,mean_improvement_vs_reference_percent,notes
+example17_capacity_aging_final,results/capacity_aging_final_metrics.csv,fleet_updated_deterministic_final,final_model,4,0.019970126299511302,0.0207414433549821,0.0157029862769964,16.005790389091572,final 70/30 capacity-aging forecast
+example17_capacity_aging_final,results/capacity_aging_final_metrics.csv,self_only_baseline,baseline,4,0.023935154629147925,0.02688765139837165,0.018978307820317574,0.0,final 70/30 capacity-aging forecast
+example18_observation_update,results/capacity_aging_observation_update_metrics.csv,full_window_update,observation_update_case,4,0.022875321828570598,0.0213851591823918,0.0197565022453529,6.271490271362481,Example 18 evaluation on normalized energy age x > 0.80
+example18_observation_update,results/capacity_aging_observation_update_metrics.csv,no_update,observation_update_case,4,0.023487529484083322,0.0246131027952353,0.020427405145658575,0.0,Example 18 evaluation on normalized energy age x > 0.80
+example18_observation_update,results/capacity_aging_observation_update_metrics.csv,partial_sparse_update,observation_update_case,4,0.0225191433568927,0.0217775032220188,0.019317147867219102,8.16954027623243,Example 18 evaluation on normalized energy age x > 0.80
