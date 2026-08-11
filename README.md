@@ -33,8 +33,8 @@ cycle-level train/test splits.
 
 The RF hybrid without temperature has the lowest mean RMSE among these final
 RF variants. The temperature-aware model remains available as a reusable,
-evaluated feature variant. The MLP residual experiment is retained only as
-model-development history and is not part of the package API.
+evaluated feature variant. The MLP residual remains an evaluated diagnostic in
+Example 16 but is not part of the package API or selected final model.
 
 ### Why did temperature not improve the aggregate RF result?
 
@@ -243,36 +243,26 @@ from hbpinn_battery.metrics import mae, rmse
 
 The clipped state-of-charge feature is
 
-$$
-\mathrm{SOC}
-=
-1-\frac{Q_{\mathrm{used}}}{Q_{\mathrm{capacity}}},
-\qquad \mathrm{SOC}\in[0,1].
-$$
+```math
+\mathrm{SOC} = 1-\frac{Q_{\mathrm{used}}}{Q_{\mathrm{capacity}}}, \qquad \mathrm{SOC}\in[0,1].
+```
 
 The physics-inspired baseline is
 
-$$
-V_{\mathrm{base}}
-=
-\beta_0
-+\beta_1\mathrm{SOC}
-+\beta_2\mathrm{SOC}^2
-+\beta_3\mathrm{SOC}^3
-+\beta_4 I,
-$$
+```math
+V_{\mathrm{base}} = \beta_0 + \beta_1\mathrm{SOC} + \beta_2\mathrm{SOC}^2 + \beta_3\mathrm{SOC}^3 + \beta_4 I.
+```
 
 where `discharge_current_a` supplies the non-negative discharge-current
 feature. The residual and hybrid prediction are
 
-$$
-r=V_{\mathrm{measured}}-V_{\mathrm{base}},
-$$
+```math
+r = V_{\mathrm{measured}} - V_{\mathrm{base}}.
+```
 
-$$
-\hat V_{\mathrm{hybrid}}
-=V_{\mathrm{base}}+\hat r_{\mathrm{RF}}.
-$$
+```math
+\hat V_{\mathrm{hybrid}} = V_{\mathrm{base}} + \hat r_{\mathrm{RF}}.
+```
 
 The exact ordered feature sets are:
 
@@ -292,20 +282,15 @@ variant.
 
 Cycle-level SOH is defined by
 
-$$
-\mathrm{SOH}
-=
-\frac{Q_{\mathrm{cycle}}}{Q_{\mathrm{initial}}}.
-$$
+```math
+\mathrm{SOH} = \frac{Q_{\mathrm{cycle}}}{Q_{\mathrm{initial}}}.
+```
 
 The aging coordinate is normalized cumulative energy:
 
-$$
-x_E
-=
-\frac{E_{\mathrm{cumulative}}}
-{E_{\mathrm{cumulative,max}}}.
-$$
+```math
+x_E = \frac{E_{\mathrm{cumulative}}}{E_{\mathrm{cumulative,max}}}.
+```
 
 The denominator is the observed full-life cumulative-energy maximum, making
 this coordinate retrospective rather than fully prospective. The base
@@ -348,15 +333,13 @@ metrics are calculated only in the future evaluation region.
 
 The shared metrics are
 
-$$
-\mathrm{RMSE}
-=
-\sqrt{\frac{1}{N}\sum_{i=1}^{N}(y_i-\hat y_i)^2},
-\qquad
-\mathrm{MAE}
-=
-\frac{1}{N}\sum_{i=1}^{N}|y_i-\hat y_i|.
-$$
+```math
+\mathrm{RMSE} = \sqrt{\frac{1}{N}\sum_{i=1}^{N}(y_i-\hat y_i)^2}.
+```
+
+```math
+\mathrm{MAE} = \frac{1}{N}\sum_{i=1}^{N}|y_i-\hat y_i|.
+```
 
 ## Reproducing the Experiments
 
@@ -393,10 +376,12 @@ python examples/19_final_summary.py
 
 These scripts are the authoritative experiment entry points. Raw-data-dependent
 scripts require the NASA `.mat` files to be supplied separately and available
-at the input location expected by the corresponding script. Earlier examples,
-standalone Examples 12–15, older Example-17 variants, MLP diagnostics, and
-older fleet experiments document exploration and model development; they are
-not the current final algorithms and need not be run in numerical order.
+at the input location expected by the corresponding script. Examples 01–10
+document staged data inspection and early baselines, while standalone Examples
+12–15 retain the B0005 diagnostic/ablation lineage. The authoritative final
+workflow is Examples 11, 16, `17_capacity_aging_final.py`, 18, and 19. Obsolete
+intermediate Example-17 implementations are not included in the final
+submission.
 
 The reusable package was checked against these authoritative scripts. The
 refactor preserved their preprocessing, algorithms, splits, selected models,
@@ -438,9 +423,9 @@ Important final artifacts include:
   `figures/capacity_aging_final_rmse_summary.png`, and
   `figures/capacity_aging_observation_update_rmse_summary.png`.
 
-Older single-battery, MLP, v2/v3, and fleet-development artifacts remain in
-the repository as experiment history and should not be interpreted as the
-current final results.
+Final tracked metrics, predictions, diagnostic comparisons, and figures are
+included for review. Obsolete intermediate capacity-model artifacts are
+excluded from the final submission.
 
 ## Limitations
 
